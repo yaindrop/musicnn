@@ -2,6 +2,7 @@ import os
 import re
 import json
 import csv
+from typing import final
 
 import numpy as np
 from musicnn.extractor import extractor
@@ -56,12 +57,6 @@ def load_data(data_file):
         return json.load(o)
 
 
-def fit_mat(mat):
-    clf = COPOD()
-    clf.fit(mat)
-    return clf
-
-
 def album_subdata(lib_data, lib_dir, album_names):
     data = init_data(lib_data['tags'])
     for name in album_names:
@@ -85,8 +80,11 @@ def album_subdata(lib_data, lib_dir, album_names):
                 if not re.match(music_ext_pattern, filename):
                     continue
                 file_path = os.path.join(subpath, filename)
-                file_index = lib_data['path'].index(file_path)
-                if file_index >= 0:
+                try:
+                    file_index = lib_data['path'].index(file_path)
+                except Exception:
+                    pass
+                else:
                     data['path'].append(file_path)
                     data['vecs'].append(lib_data['vecs'][file_index].copy())
     return data
@@ -100,8 +98,11 @@ def album_pickdata(pick_to, lib_data, lib_dir, album_names):
                 if not re.match(music_ext_pattern, filename):
                     continue
                 file_path = os.path.join(subpath, filename)
-                file_index = lib_data['path'].index(file_path)
-                if file_index >= 0:
+                try:
+                    file_index = lib_data['path'].index(file_path)
+                except Exception:
+                    pass
+                else:
                     pick_to['path'].append(file_path)
                     pick_to['vecs'].append(lib_data['vecs'][file_index].copy())
                     break
@@ -117,7 +118,10 @@ def album_od(lib_data, lib_dir, inlier_albums, outlier_albums=[], output='out.cs
     label_truth = np.r_[np.zeros(inlier_count), np.ones(outlier_count)]
 
     data_mat = np.array(data['vecs'])
-    clf = fit_mat(data_mat)
+
+    clf = COPOD(contamination=outlier_count /
+                n) if outlier_count > 1 else COPOD()
+    clf.fit(data_mat)
 
     od_scores = clf.decision_scores_
     od_mat = clf.O[-n:]
@@ -167,7 +171,6 @@ if __name__ == '__main__':
 
     lib_data = load_data('itunes.json')
 
-    album_od(lib_data, itunes_dir, ['Nami Haven'], [
-            'Foxtail-Grass Studio', 'TUMENECO', 'Halozy', 'DJ OKAWARI', 'the distant journey to you'])
-
-    album_od(lib_data, itunes_dir, ['Nami Haven'])
+    album_od(lib_data, itunes_dir, ['the distant journey to you'], [
+        'Foxtail-Grass Studio', 'TUMENECO', 'Halozy', 'DJ OKAWARI', 'Nami Haven'])
+    # album_od(lib_data, itunes_dir, ['Nami Haven'])
