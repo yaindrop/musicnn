@@ -123,13 +123,14 @@ def album_od(lib_data, lib_dir, inlier_albums, outlier_albums=[], output='out.cs
                 n) if outlier_count > 1 else COPOD()
     clf.fit(data_mat)
 
-    od_scores = clf.decision_scores_
     od_mat = clf.O[-n:]
     median_likelihood = np.median(data_mat, axis=0)
     if weighted:
         weights = np.maximum(data_mat, median_likelihood.T)
         od_mat = np.multiply(od_mat, weights)
-        od_scores = od_mat.sum(axis=1)
+        clf.decision_scores_ = od_mat.sum(axis=1)
+        clf.threshold_ = np.percentile(clf.decision_scores_, 100 * (1 - clf.contamination))
+        clf.labels_ = (clf.decision_scores_ > clf.threshold_).astype('int').ravel()
 
     if len(outlier_albums) > 0:
         evaluate_print('Genre COPOD', label_truth, clf.labels_)
@@ -146,7 +147,7 @@ def album_od(lib_data, lib_dir, inlier_albums, outlier_albums=[], output='out.cs
         csvWriter.writerows([[
             "%d" % label_truth[i],
             "%d" % clf.labels_[i],
-            "%.3lf" % od_scores[i],
+            "%.3lf" % clf.decision_scores_[i],
             os.path.relpath(data['path'][i], lib_dir),
             ", ".join([
                 "%s %s:%.3lf(%.3lf/%.3lf)" % pair
@@ -172,5 +173,5 @@ if __name__ == '__main__':
     lib_data = load_data('itunes.json')
 
     album_od(lib_data, itunes_dir, ['the distant journey to you'], [
-        'Foxtail-Grass Studio', 'TUMENECO', 'Halozy', 'DJ OKAWARI', 'Nami Haven'])
+        'Foxtail-Grass Studio', 'TUMENECO', 'Halozy', 'DJ OKAWARI', 'Nami Haven'], weighted=False)
     # album_od(lib_data, itunes_dir, ['Nami Haven'])
